@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<style>
+			@import url('https://fonts.googleapis.com/css2?family=Commissioner:wght@100..900&display=swap');
+			.commissioner-body {
+				width: 100vw;
+				height: 100vh;
+				background-color: black;
+				color: white;
+				font-family: "Commissioner", sans-serif;
+				font-optical-sizing: auto;
+				font-weight: 400;
+				font-style: normal;
+				font-variation-settings:
+					"slnt" 0,
+					"FLAR" 0,
+					"VOLM" 0;
+			}
+		</style>
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover" class="commissioner-body">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>
