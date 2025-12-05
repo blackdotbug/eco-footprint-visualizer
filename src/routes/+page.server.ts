@@ -1,11 +1,12 @@
 import type { Actions } from './$types';
-import { VITE_GEOAPIFY } from '$env/static/private';
+// import { VITE_GEOAPIFY } from '$env/static/private';
 import { WBK, type Entities } from 'wikibase-sdk';
 import { findAirport, haversineDistance } from '$lib/utils/interactivity';
 import * as turf from "@turf/turf";
 import type { ExtendedFeature } from 'd3-geo';
 // import datasets from '$lib/data/datasets.json';
 
+const VITE_GEOAPIFY = import.meta.env.VITE_GEOAPIFY;
 const wdk = WBK({
   instance: 'https://www.wikidata.org',
   sparqlEndpoint: 'https://query.wikidata.org/sparql'

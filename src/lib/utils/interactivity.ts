@@ -1,4 +1,5 @@
-import { VITE_GEOAPIFY } from '$env/static/private';
+// import { VITE_GEOAPIFY } from '$env/static/private';
+const VITE_GEOAPIFY = import.meta.env.VITE_GEOAPIFY;
 
 function toRadians(degrees: number) {
     return degrees * Math.PI / 180;
