@@ -18,4 +18,9 @@
         padding: 5px;
         cursor: pointer;
     }
+    @media screen and (max-width: 900px) {
+        select#people-select {
+            width: 45vw;
+        }
+    }
 </style>

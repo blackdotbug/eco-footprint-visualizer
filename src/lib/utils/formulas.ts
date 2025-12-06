@@ -19,20 +19,16 @@ const foodtypes = datasource.map(item => item["Food Group"]);
 
 const adjustedConsumption = (foodtype:foodtype, percentage:percentage) => {
     const dataSource = datasource.find(item => item["Food Group"] === foodtype);
-    if (dataSource) {
-        const adjusted = dataSource["Compensation Factor"] === -1 
-            ? dataSource["Default Global Per Capita Consumption (kg/year)"] * (1 - percentage)
-            : dataSource["Default Global Per Capita Consumption (kg/year)"] * (1 + percentage * dataSource["Compensation Factor"]);
-        return adjusted;
-    } else {
-        return undefined;
-    }
+    const adjusted = dataSource["Compensation Factor"] === -1 
+        ? dataSource["Default Global Per Capita Consumption (kg/year)"] * (1 - percentage)
+        : dataSource["Default Global Per Capita Consumption (kg/year)"] * (1 + percentage * dataSource["Compensation Factor"]);
+    return adjusted;
 };
 
 const calcImpact = (foodtype:foodtype, impact:impact, percentage:percentage, people:people) => {
     const dataSource = datasource.find(item => item["Food Group"] === foodtype);
     const totalConsumption = adjustedConsumption(foodtype, percentage);
-    if (dataSource && totalConsumption) {
+    if (dataSource) {
         return totalConsumption * dataSource[impact] * people;
     } else {
         return undefined;
@@ -42,7 +38,7 @@ const calcImpact = (foodtype:foodtype, impact:impact, percentage:percentage, peo
 const calcAnimalsSlaughtered = (foodtype:foodtype, people:people, percentage:percentage) => {
     const dataSource = datasource.find(item => item["Food Group"] === foodtype);
     const totalConsumption = adjustedConsumption(foodtype, percentage);
-    if (dataSource && totalConsumption) {
+    if (dataSource) {
         const animals = dataSource["Average Dressed Weight (kg)"] > 0 
             ? totalConsumption / dataSource["Average Dressed Weight (kg)"] * people
             : 0;
@@ -55,7 +51,7 @@ const calcAnimalsSlaughtered = (foodtype:foodtype, people:people, percentage:per
 const calcImpactSaved = (foodtype:foodtype, impact:impact, percentage:percentage, people:people) => {
     const dataSource = datasource.find(item => item["Food Group"] === foodtype);
     const typeImpact = calcImpact(foodtype, impact, percentage, people)
-    if (dataSource && typeImpact) {
+    if (dataSource) {
         return (dataSource["Default Global Per Capita Consumption (kg/year)"] * dataSource[impact] * people) - typeImpact;
     } else {
         return undefined;
@@ -65,7 +61,7 @@ const calcImpactSaved = (foodtype:foodtype, impact:impact, percentage:percentage
 const calcAnimalsSaved = (foodtype:foodtype, people:people, percentage:percentage) => {
     const dataSource = datasource.find(item => item["Food Group"] === foodtype);
     const totalConsumption = adjustedConsumption(foodtype, percentage);
-    if (dataSource && totalConsumption) {
+    if (dataSource) {
         const saved = dataSource["Average Dressed Weight (kg)"] > 0 
             ? (dataSource["Default Global Per Capita Consumption (kg/year)"] - totalConsumption) / dataSource["Average Dressed Weight (kg)"] * people
             : 0;
@@ -138,7 +134,7 @@ export const updateAllCalculations = (people:number, percentage:number) => {
     });
     stats.push({
         key: "animals",
-        impact: "", 
+        impact: "slaughter", 
         units: "animals",
         total: aggregateAnimalsSlaughtered(people, percentage),
         saved: aggregateAnimalsSaved(people, percentage), 

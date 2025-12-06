@@ -2,7 +2,6 @@
     import { format } from "d3-format";
     let { impact, units, saved, percentChange, comparison, focus = $bindable(), showCardBack = $bindable(), flippedCard = $bindable() } = $props();
     const toggleShowBack = (entity:any) => {
-        console.log("toggling card back for", entity);
         showCardBack = !showCardBack;
         focus = showCardBack ? entity : undefined;
         flippedCard = showCardBack ? impact : undefined;
@@ -16,12 +15,12 @@
     })
 </script>
 <button class="impact-result" 
-    onclick={() => toggleShowBack(comparison?.entity)}
+    onclick={() => {toggleShowBack(comparison?.entity)}}
     disabled={!comparison?.message.stat}
 >
     <div class="flip-box-inner" class:flip-it={showCardBack}>
         <div class="flip-box-front">
-            <h3><span class="yellow">{format(",.0f")(saved)} {units}</span> {impact} saved.</h3>
+            <h3><span class="yellow">{format(",.0f")(saved)} {units}</span> {impact !== "slaughter" ? impact : ""} saved.</h3>
             <p>{percentChange.toFixed(1)}% from baseline consumption.</p>
         </div>
         <div class="flip-box-back">
@@ -50,7 +49,8 @@
 	}
     button:disabled .flip-box-front:hover, button:disabled .flip-box-back:hover{
         border-color: white;
-        background-color: #ffffff77;
+        background-color: rgba(255, 255, 255, 0.025); /* A semi-transparent background is necessary to see the blur */
+        cursor: default;
     }
     h3,p {
         margin: 0;
@@ -77,22 +77,27 @@
 		border: 1px solid white;
 		border-radius: 10px;
 		padding: 20px;
-		background-color: #ffffff3b;
         color: #fff;
 		position: absolute;
 		width: 90%;
 		height: fit-content;
 		-webkit-backface-visibility: hidden; /* Safari */
 		backface-visibility: hidden;
-        background-color: rgba(255, 255, 255, 0.025); /* A semi-transparent background is necessary to see the blur */
+        background-color: rgba(0, 0, 0, 0.5); /* A semi-transparent background is necessary to see the blur */
         backdrop-filter: blur(2px); /* Adjust the pixel value for desired blur intensity */
         -webkit-backdrop-filter: blur(2px); /* For broader browser compatibility */
 	}
     .flip-box-front:hover, .flip-box-back:hover {
         border-color: #63bc00;
         background-color: rgba(255, 255, 255, 0.25); /* A semi-transparent background is necessary to see the blur */
+        transition: background-color 0.3s, border-color 0.3s;
     }
 	.flip-box-back {
 		transform: rotateY(180deg);
 	}
+    @media screen and (max-width: 950px) and (orientation: landscape) and (min-aspect-ratio: 4/3) {
+        .impact-result {
+            height: 20vh;
+        }
+    }
 </style>

@@ -7,6 +7,7 @@
     import { updateAllCalculations } from "$lib/utils/formulas";
     import Geolocation from "svelte-geolocation";
     import { format } from "d3-format";
+    import * as turf from '@turf/turf';
     import { enhance } from '$app/forms';
 	import type { PageProps } from './$types';
 	let { form }: PageProps = $props();
@@ -25,44 +26,51 @@
     let coordsForm: HTMLFormElement;
     let focus = $state(undefined);
     let flippedCard = $state(undefined);
+    let flippedCardBottom = $state(0);
     let showLocations = $state(false);
     let getPositionAgain = $state(false);
+    let drawerTabText = $state('Choose a Location');
+    $effect(() => {
+        drawerTabText = (locationButton || coords.some(n => n != -1)) 
+            ? 'Change Location' 
+            : 'Choose a Location';
+    })
     const wikidataProps = [
         {
             label: "population",
-            impact: "animals",
+            impact: "slaughter",
             units: "number of people",
-            conversion: (x) => x
+            conversion: (x: number) => x
         },{
             label: "area",
             units: "square kilometer",
             impact: "Land Use",
-            conversion: (x) => x * 1000000
+            conversion: (x: number) => x * 1000000
         },{
             label: "number of households",
-            impact: "animals",
+            impact: "slaughter",
             units: "number of households",
-            conversion: (x) => x
+            conversion: (x: number) => x
         },{
             label: "discharge",
             units: "cubic meters per second",
             impact: "Water Use",
-            conversion: (x) => x
+            conversion: (x: number) => x
         },{
             label: "watershed area",
             units: "square kilometer",
             impact: "Land Use",
-            conversion: (x) => x * 1000000
+            conversion: (x: number) => x * 1000000
         },{
             label: "volume as quantity",
             units: "cubic kilometers",
             impact: "Water Use",
-            conversion: (x) => x * 1000000000
+            conversion: (x: number) => x * 1000000000
         },{
             label: "per passenger per kilometer GHG emissions",
             units: "kg of CO2",
             impact: "GHG",
-            conversion: (x) => x / 0.246  
+            conversion: (x: number) => x / 0.246  
         }            
     ];
     const locationButtons = [
@@ -107,41 +115,42 @@
     })
     $effect(()=>{
         if (form?.success) {
-            const entities = form.locationData.flatMap(f => {
-                return f?.props.flatMap(m => {
-                    if (m.entity && m.value) {
+            const entities = form.locationData.flatMap((f: any) => {
+                return f?.props.flatMap((m: any) => {
+                    if (m && m.entity && m.value) {
                         return m;
-                    } else if (m.children) {
-                        return m.children.flatMap(c => {
-                            if (c.length && c.length > 0) {
-                                return c.flatMap(e => {
-                                    if (e.length && e.length > 0) {
-                                        e.flatMap(d => {
-                                            if (d.entity && d.value) {
+                    } else if (m && m.children) {
+                        return m.children.flatMap((c: any) => {
+                            if (Array.isArray(c) && c.length && c.length > 0) {
+                                return c.flatMap((e: any) => {
+                                    if (Array.isArray(e) && e.length && e.length > 0) {
+                                        return e.flatMap((d: any) => {
+                                            if (d && d.entity && d.value) {
                                                 return d;
                                             } else {
                                                 return undefined;
                                             }
                                         })
-                                    } else if (e.entity && e.value) {
+                                    } else if (e && e.entity && e.value) {
                                         return e;
                                     } else {
                                         return undefined;
                                     }
                                 })
-                            } else if (c.entity && c.value) {
+                            } else if (c && c.entity && c.value) {
                                 return c;
                             } else {
                                 return undefined;
                             }
                         })
                     }
+                    return undefined;
                 })
             })
             const filtered = entities.filter(f => f);
-            if (filtered.length > 0) {
-                entityProps = filtered.map(m => {
-                    const match = wikidataProps.find(f => f.label === m.label)
+                if (filtered.length > 0) {
+                entityProps = filtered.map((m: any) => {
+                    const match = wikidataProps.find((f: any) => f.label === m.label)
                     m.equivalent = match?.conversion(m.value)
                     return Object.assign(m, match)
                 });
@@ -152,9 +161,7 @@
         if (entityProps?.length > 0) {
             comparisons = stats.map(stat => {
                 const comparison = {
-                    impact: stat.impact 
-                        ? stat.impact 
-                        : stat.units, 
+                    impact: stat.impact, 
                     message: {
                         prefix: "",
                         stat: "",
@@ -163,8 +170,8 @@
                     entity: ""
                 }
                 if (stat.impact === "GHG" && form?.airport.distance) {
-                    const propsGHG = wikidataProps.find(f => f.impact === "GHG");
-                    const equivalentGHG = propsGHG?.conversion(stat.saved);
+                    const propsGHG = wikidataProps.find((f: any) => f.impact === "GHG");
+                    const equivalentGHG = propsGHG?.conversion(stat.saved) ?? 0;
                     const ratioGHG = equivalentGHG/form.airport.distance;
                     const statGHG = ratioGHG < 1 
                         ? `${format(".2p")(ratioGHG)} of a flight`
@@ -175,49 +182,64 @@
                     comparison.message.stat = statGHG;
                     comparison.message.suffix = ` from here to ${form.airport.feature.properties.name}`;
                     comparison.entity = form.airport.feature;
-                }
-                const measures = entityProps.filter(f => comparison.impact === f.impact)
-                if (measures?.length > 0) {
-                    const closestMeasure = measures.reduce((closest, current) => {
-                        const currentDiff = Math.abs(current.equivalent - stat.saved);
-                        const closestDiff = Math.abs(closest.equivalent - stat.saved);
-                        return currentDiff < closestDiff ? current : closest;
-                    });
-                    comparison.entity = closestMeasure.entity;
-                    const ratio = stat.saved / closestMeasure.equivalent
-                    if (comparison.impact === "Land Use") {
-                        comparison.message.prefix = `That's` 
-                        comparison.message.stat = `${format(".2p")(ratio)} of the area` 
-                        comparison.message.suffix = `of ${closestMeasure.entity}.`;
-                    } else if (comparison.impact === "Water Use") {
-                        if (closestMeasure.label === "discharge") {
-                            const ratioInfo = ratio > 60 * 61 
-                                ? {value: ratio/(60*60), units: "hours"}
-                                : ratio > 90 
-                                ? {value: ratio/60, units: "minutes"} 
-                                : {value: ratio, units: "seconds"};
-                            comparison.message.prefix = `At ${
-                                format(",.0f")(closestMeasure.value)
-                                } ${closestMeasure.units} that's` 
-                            comparison.message.stat = `${
-                                 format(ratio > 1 ? ",.0f" : ".2f")(ratioInfo.value)
-                                 } ${ratioInfo.units} of water` 
-                            comparison.message.suffix = `through the ${
-                                  closestMeasure.entity}.`
+                } else {
+                    const measures = entityProps.filter((f: any) => {
+                        return comparison.impact === f.impact
+                    })
+                    if (measures?.length > 0) {
+                        const closestMeasure = measures.reduce((closest: any, current: any) => {
+                            const currentDiff = Math.abs(current.equivalent - stat.saved);
+                            const closestDiff = Math.abs(closest.equivalent - stat.saved);
+                            return currentDiff < closestDiff ? current : closest;
+                        });
+                        comparison.entity = closestMeasure.entity;
+                        const ratio = stat.saved / closestMeasure.equivalent
+                        if (comparison.impact === "Land Use") {
+                            comparison.message.prefix = `That's` 
+                            comparison.message.stat = `${format(".2p")(ratio)} of the area` 
+                            comparison.message.suffix = `of ${closestMeasure.entityLabel}.`;
+                        } else if (comparison.impact === "Water Use") {
+                            if (closestMeasure.label === "discharge") {
+                                const ratioInfo = ratio > 60 * 61 
+                                    ? {value: ratio/(60*60), units: "hours"}
+                                    : ratio > 90 
+                                    ? {value: ratio/60, units: "minutes"} 
+                                    : {value: ratio, units: "seconds"};
+                                comparison.message.prefix = `At ${
+                                    format(",.0f")(closestMeasure.value)
+                                    } ${closestMeasure.units} that's` 
+                                comparison.message.stat = `${
+                                    format(ratio > 1 ? ",.0f" : ".2f")(ratioInfo.value)
+                                    } ${ratioInfo.units} of water` 
+                                comparison.message.suffix = `through the ${
+                                    closestMeasure.entityLabel}.`
+                            }
+                        } else if (comparison.impact === 'slaughter') {
+                            const messageStat = ratio < 1
+                                ? `${format(".2p")(ratio)} of the ${closestMeasure.units}`
+                                : ratio > 1
+                                    ? `${format(".1f")(ratio)} times the ${closestMeasure.units}` 
+                                    : `the ${closestMeasure.units}` 
+                            comparison.message.prefix = `That's`;
+                            comparison.message.stat = messageStat;
+                            comparison.message.suffix = `in ${closestMeasure.entityLabel}.`;
                         }
-                    } else if (comparison.impact === 'animals') {
-                        const messageStat = ratio < 1
-                            ? `${format(".2p")(ratio)} of the ${closestMeasure.units}`
-                            : ratio > 1
-                                ? `${format(".1f")(ratio)} times the ${closestMeasure.units}` 
-                                : `the ${closestMeasure.units}` 
-                        comparison.message.prefix = `That's`;
-                        comparison.message.stat = messageStat;
-                        comparison.message.suffix = `in ${closestMeasure.entity}.`;
                     }
                 }
                 return comparison;
             })
+        }
+    })
+
+    // measure the bottom of the flipped card so the map can inset accordingly
+    $effect(() => {
+        // run after DOM updates
+        const el = document.querySelector('.top-card') as HTMLElement | null;
+        if (el) {
+            const r = el.getBoundingClientRect();
+            flippedCardBottom = Math.round(r.bottom);
+        } else {
+            flippedCardBottom = 0;
         }
     })
     // $effect(()=>{
@@ -247,44 +269,57 @@
                 <SelectInput bind:value={people} />
                 <div id="range-container">
                     <label for="percent-range">
-                        Percentage Plant-based Shift: {Math.round(percent * 100)}%
+                        Plant-based Shift: {Math.round(percent * 100)}%
                     </label>
                     <RangeInput id="percent-range" min="0" max="1" step="0.05" bind:value={percent}/>
                 </div>
             </div>
         </div>
     </header>
-
     <div id="buttons">
         <div id="results-container">
             {#each stats as {impact, units, saved, percentChange}}
-                <Card 
-                    {impact} 
-                    {units} 
-                    {saved} 
-                    {percentChange} 
-                    comparison={comparisons.find(f => f.impact === impact || f.impact === units)}
-                    bind:focus={focus}
-                    bind:flippedCard={flippedCard}
-                />
+                <div class={flippedCard && flippedCard !== impact ? 'hidden' : flippedCard === impact ? 'top-card' : ''}>
+                    <Card
+                        {impact}
+                        {units}
+                        {saved}
+                        {percentChange}
+                        comparison={comparisons.find((f: any) => f.impact === impact || f.impact === units)}
+                        bind:focus={focus}
+                        bind:flippedCard={flippedCard}
+                    />
+                </div>
             {/each}
         </div>
+            <!-- Mobile drawer tab toggle (visible on small screens) -->
+            <button id="drawer-tab-toggle" class:open={showLocations} onclick={() => showLocations = !showLocations}>
+                {drawerTabText}
+            </button>
         {#if showLocations}
-            <div id="locations">
-                {#each locationButtons as location}
-                    <button onclick={() => {
-                        locationButton = location.label
-                        coords = location.coords as [number, number]
-                    }}>
-                        {location.label}
+            <div id="drawer-overlay" role="button" tabindex="0" onclick={() => showLocations = false} onkeydown={(e) => e.key === 'Escape' && (showLocations = false)}></div>
+            <div id="locations-drawer" class:open={showLocations}>
+                <div class="drawer-header">
+                    <div class="drawer-tab-title">{drawerTabText}</div>
+                    <button class="drawer-close" onclick={() => showLocations = false} aria-label="Close">✕</button>
+                </div>
+                <div id="locations">
+                    {#each locationButtons as location}
+                        <button onclick={() => {
+                            locationButton = location.label
+                            coords = location.coords as [number, number]
+                            showLocations = false;
+                        }}>
+                            {location.label}
+                        </button>
+                    {/each}
+                    <button id="locationSwitch" onclick={()=> getPositionAgain = !getPositionAgain}>
+                        Choose My Location
                     </button>
-                {/each}
-                <button id="locationSwitch" onclick={()=> getPositionAgain = !getPositionAgain}>
-                    Choose My Location
-                </button>
+                </div>
             </div>
         {:else}
-            <button id="locationSwitch" onclick={()=> {coords = [-1,-1]; showLocations = true; locationButton = undefined;}}>
+            <button id="locationToggleButton" onclick={()=> {coords = [-1,-1]; showLocations = true; locationButton = undefined;}}>
                 Choose Another Location
             </button>
         {/if}
@@ -303,7 +338,17 @@
 {#if form?.success}
     <div bind:clientHeight={mapHeight} bind:clientWidth={mapWidth} id="map">
         {#if mapHeight > 0}
-            <Map features={form.locationData.map(m => m.feature)} width={mapWidth} height={mapHeight} center={mapCenter} {focus} />            
+            <Map
+                features={form.locationData.map((m:any) => {
+                    const complexity = m.feature.geometry.coordinates.flatMap((c:any) => typeof c[0] === 'number' ? c.length : c.flatMap((d:any) => typeof d[0] === 'number' ? d.length : d.flatMap((e:any) => typeof e[0] === 'number' ? e.length : 0))).length;
+                    return complexity <= 3000 ? m.feature : turf.simplify(m.feature, {tolerance: 0.01, mutate: true});
+                })}
+                width={mapWidth}
+                height={mapHeight}
+                center={mapCenter}
+                {focus}
+                topInset={flippedCardBottom}
+            />
         {/if}
     </div>
 {/if}
@@ -311,6 +356,8 @@
 <style>
     #overlay {
         width: 100vw;
+        height: 100vh;
+        overflow: hidden;
     }
     header {
         display: flex;
@@ -318,7 +365,7 @@
         margin: 0 0 20px;
         padding-bottom: 10px;
         border-bottom: 1px solid #000;
-        background-color: rgba(255, 255, 255, 0.05); /* A semi-transparent background is necessary to see the blur */
+        background-color: rgba(0, 0, 0, 0.5); /* A semi-transparent background is necessary to see the blur */
         backdrop-filter: blur(2px); /* Adjust the pixel value for desired blur intensity */
         -webkit-backdrop-filter: blur(2px); /* For broader browser compatibility */
     }
@@ -345,7 +392,6 @@
         gap: 30px;
         margin: 30px 2rem 0;
         align-items: center;
-        flex-wrap: wrap;
     }
     #range-container {
         min-width: 240px;
@@ -374,14 +420,14 @@
     }
     #results-container {
         width: 35%;
-        margin: 30px 2rem;
+        margin: 10px 2rem;
         display: flex;
         flex-direction: column;
         justify-content: space-evenly;
         flex-wrap: wrap;
-        row-gap: 32px;
+        row-gap: 42px;
     }
-    button#locationSwitch, #locations button#locationSwitch {
+    button#locationToggleButton {
         position: fixed;
         right: -5px;
         bottom: -5px;
@@ -392,9 +438,16 @@
         font-size: unset;
         font-weight: unset;
         background-color: white;
+        z-index: 900;
+    }
+    button#drawer-tab-toggle, div.drawer-header {
+        display: none;
+    }
+    #locations-drawer {
+        width: 60vw;
     }
     #locations {
-        width: 60%;
+        width: 100%;
         margin: 30px 2rem;
         display: flex;
         flex-wrap: wrap;
@@ -402,6 +455,7 @@
     }
     #locations button {
         width: 42%;
+        padding: 1em;
         border-radius: 10px;
         font-size: 1.2em;
         font-weight: 600;
@@ -411,4 +465,287 @@
     #locations button:hover {
         background-color: #63bc00;
     }
+    /* Card hide/show transitions and top-card positioning */
+    #results-container {
+        position: relative;
+    }
+    .hidden {
+        opacity: 0;
+        transform: translateY(8px) scale(.98);
+        pointer-events: none;
+        filter: blur(0.6px);
+        transition: opacity .28s ease, transform .28s ease, filter .28s ease;
+    }
+    .top-card {
+        position: absolute;
+        left: 50%;
+        /* pull the flipped card higher to reveal more map space underneath */
+        transform: translate(-50%, -36px);
+        top: 30px;
+        z-index: 1003;
+        width: 100%;
+        transition: transform .28s ease, width .28s ease, top .28s ease;
+    }
+    @media screen and (max-width: 600px) {
+        header {
+            flex-direction: column;
+            align-items: start;
+        }
+        header img {
+            height: 140px;
+            margin: 20px 10px 0;
+        }
+        h1 {
+            font-size: 2.1em;
+            margin: 0 1rem;
+        }
+        h2 {
+            font-size: 1.2em;
+            margin: 0 1rem;
+        }
+        #inputs {
+            margin: 20px 1rem 0;
+            gap: 10px
+        }
+        #loading-overlay {
+            display: none;
+        }
+        #range-container {
+            min-width: unset;
+            width: 45vw;
+        }
+        #buttons {
+            flex-direction: column;
+            align-items: center;
+        }
+        #results-container {
+            width: 90%;
+            margin: 10px 1rem;
+            flex-direction: column;
+            justify-content: center;
+            row-gap: 10px;
+        }
+        #locations {
+            width: 90%;
+            margin: 20px 1rem;
+            justify-content: center;
+            gap: 16px;
+        }
+        #locations button {
+            width: 100%;
+            padding: .5em;
+        }
+        /* Mobile drawer overrides */
+        #drawer-overlay {
+            display: block;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 1000;
+            opacity: 1;
+        }
+        #locations-drawer {
+            position: fixed;
+            left: 0;
+            bottom: 0;
+            width: 92%;
+            max-height: 65vh;
+            z-index: 1001;
+            transform: translateY(100%);
+            transition: transform .28s ease;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+            background-color: #373737;
+            padding: 16px;
+        }
+        #locations-drawer.open {
+            transform: translateY(0%);
+        }
+        #locations-drawer .drawer-header {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 8px;
+        }
+        .drawer-close {
+            background: transparent;
+            border: none;
+            font-size: 1rem;
+            padding: 6px 10px;
+            cursor: pointer;
+        }
+        /* Drawer tab visible above closed drawer */
+        #drawer-tab-toggle {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 10px;
+            z-index: 1002;
+            background: #bdfc75;
+            color: #063;
+            padding: 10px 18px;
+            border-radius: 20px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+            font-weight: 700;
+            cursor: pointer;
+            display: block;
+        }
+        #drawer-tab-toggle.open {
+            /* hide tab when drawer open (drawer shows title) */
+            display: none;
+        }
+        /* Title shown inside drawer header */
+        .drawer-tab-title {
+            flex: 1 1 auto;
+            text-align: center;
+            font-weight: 700;
+            color: #fff;
+            align-self: center;
+        }
+        /* Ensure the in-drawer locationSwitch button is positioned normally on mobile */
+        button#locationSwitch {
+            position: relative;
+            right: auto;
+            bottom: auto;
+        }
+        /* Hide the outside toggle button on small screens (we show the tab instead) */
+        /* button#locationToggleButton {
+            display: none;
+        } */
+        .top-card {
+            width: 92%;
+            top: 4vh;
+            transform: translate(-50%, -44px);
+        }
+    }
+
+        /* Mobile landscape adjustments: results become a fixed left column and the map occupies the remaining space */
+        /* Apply landscape layout only for narrow viewports that are sufficiently wide (min-aspect-ratio: 4/3) */
+        @media screen and (max-width: 950px) and (orientation: landscape) and (min-aspect-ratio: 4/3) {
+            header {
+                flex-direction: row;
+                align-items: center;
+                gap: 12px;
+                padding-top: 10px;
+            }
+            header img { height: 94px; margin: 8px; }
+            h1 { font-size: 1.25em; margin: 0; }
+            h2 { font-size: 1em; margin: 0 0 12px;}
+            #inputs { margin: 0; gap: 30px; }
+
+            #buttons {
+                width: 100%;
+                display: flex;
+                flex-direction: row;
+                align-items: flex-start;
+                gap: 8px;
+                padding: 8px;
+            }
+
+            /* Make the results panel a fixed left column so the map sits reliably to the right */
+            #results-container {
+                position: fixed;
+                left: 0;
+                top: 131px;
+                width: 34%;
+                max-width: 44%;
+                height: calc(100vh - 120px);
+                overflow-y: auto;
+                row-gap: 12px;
+                padding: 12px;
+                box-sizing: border-box;
+                background: rgba(255,255,255,0.02);
+                z-index: 1004;
+                margin: 0;
+                flex-wrap: nowrap;
+            }
+
+            #results-container > div {
+                width: 100%;
+                position: relative;
+            }
+
+            /* Keep the drawer toggle accessible in landscape */
+            #drawer-tab-toggle {
+                left: auto;
+                right: 12px;
+                bottom: 12px;
+                transform: none;
+                z-index: 1006;
+                position: absolute;
+            }
+            /* Hide the floating drawer tab when the drawer is open */
+            #drawer-tab-toggle.open {
+                display: none;
+            }
+            div.drawer-header {
+                text-align: end;
+                display: block;
+            }
+            .drawer-tab-title {
+                display: inline-block;
+            }
+            button.drawer-close {
+                margin: 5px;
+            }
+            /* Ensure the flipped top-card flows with the column layout */
+            .top-card {
+                position: relative;
+                left: 0;
+                transform: none;
+                top: 0;
+                width: 100%;
+                z-index: 1005;
+            }
+
+            /* Map occupies the right side and fills the viewport height */
+            /* #map {
+                position: fixed;
+                right: 0;
+                top: 0;
+                left: 34%;
+                height: 100vh;
+                z-index: -50;
+            } */
+
+            /* Right-side drawer for landscape */
+            #locations-drawer {
+                position: fixed;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                width: 34%;
+                max-width: 44%;
+                transform: translateX(100%);
+                transition: transform .28s ease;
+                border-radius: 12px 0 0 12px;
+                padding: 12px;
+                z-index: 1001;
+            }
+            #locations-drawer.open {
+                transform: translateX(0%);
+            }
+            #drawer-overlay {
+                display: block;
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.35);
+                z-index: 1000;
+            }
+
+            #locations {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                width: 90%;
+                margin: 10px 0 0;
+            }
+            #locations button {
+                width: 100%;
+                padding: 0;
+            }
+
+            /* button#locationToggleButton {
+                display: none;
+            } */
+        }
 </style>

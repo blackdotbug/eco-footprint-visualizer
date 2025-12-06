@@ -37,4 +37,9 @@
         border: 1px solid white;
         cursor: pointer;
     }
+    @media screen and (max-width: 900px) {
+        .slider {
+            width: 45vw;
+        }
+    }
 </style>

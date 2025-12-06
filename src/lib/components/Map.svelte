@@ -9,9 +9,9 @@
     import * as turf from '@turf/turf';
     import { tile } from "d3-tile";
     import {PUBLIC_MAPTILER} from '$env/static/public';
-    let { features, center, width, height, focus } = $props();
+    let { features, center, width, height, focus, topInset = 0 } = $props();
     const zoomLevel = 15;
-    const tileURL = (x, y, z) => `https://api.maptiler.com/maps/backdrop-dark/${z}/${x}/${y}.png?key=${PUBLIC_MAPTILER}`
+    const tileURL = (x: number, y: number, z: number) => `https://api.maptiler.com/maps/backdrop-dark/${z}/${x}/${y}.png?key=${PUBLIC_MAPTILER}`
     let mapped = $state<maptile[]>([]);
     let paths = $state<any[]>([]);
     const initScale = Math.pow(2, zoomLevel) / (2 * Math.PI);
@@ -23,7 +23,7 @@
     let pathGen = $derived(geoPath(projection));
     $effect(() => {
         if (focus) {
-            const focusFeature = features.find(f => f.properties.wiki_and_media.wikipedia.split(":")[1] === focus);
+            const focusFeature = features.find((f: any) => f.properties.wiki_and_media.wikidata === focus);
             if (focusFeature) {
                 paths = [focusFeature]
             } else if (typeof focus === "object") {
@@ -44,7 +44,18 @@
     })
     $effect(()=> {
         if (paths.length === 1) {
-            projection = geoMercator().fitExtent([[width/2 - 100,height/2 - 100],[width*.95,height*.95]], turf.featureCollection(paths as any));
+            // Compute a responsive bbox so the single-path feature is centered
+            // on smaller viewports (leave extra top padding for UI overlays).
+            const sidePadding = Math.max(12, width * 0.06);
+            // include the measured bottom of the flipped card (topInset)
+            const topPadding = Math.max(40, height * 0.10, (topInset || 0) + 12);
+            const bottomPadding = Math.max(32, height * 0.08);
+            const bbox: [[number, number],[number, number]] = [
+                [sidePadding, topPadding],
+                [width - sidePadding, height - bottomPadding]
+            ];
+            projection = geoMercator()
+                .fitExtent(bbox, turf.featureCollection(paths as any));
         } else {
             projection = geoMercator()
                 .center(center)
@@ -59,7 +70,9 @@
             .translate(projection([0,0]))
             .scale(projection.scale() * 2 * Math.PI);
         const tiles = tiler();
-        mapped = tiles.map(([x, y, z], i, {translate: [tx, ty], scale: k}) => {
+        mapped = tiles.map((tile: [number, number, number], i: number, t: {translate: [number, number], scale: number}) => {
+            const [x, y, z] = tile;
+            const {translate: [tx, ty], scale: k} = t;
             return {
                 url: tileURL(x, y, z),
                 x: Math.round((x + tx) * k),
@@ -84,9 +97,11 @@
     </g>
     <g id="pathLayer">
         {#each paths as pt}
+            {@const fill = paths.length === 1 && pt.geometry.type !== "LineString" ? "#63bc0044" : "none"}
             <path 
-                fill="none"
+                fill={fill}
                 stroke="#63bc00"
+                stroke-width="2"
                 d={pathGen(pt)}
             />            
         {/each}

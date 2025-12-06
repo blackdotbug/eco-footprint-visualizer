@@ -1,5 +1,4 @@
 import type { Actions } from './$types';
-// import { VITE_GEOAPIFY } from '$env/static/private';
 import { WBK, type Entities } from 'wikibase-sdk';
 import { findAirport, haversineDistance } from '$lib/utils/interactivity';
 import * as turf from "@turf/turf";
@@ -134,7 +133,6 @@ export const actions = {
             let airport = undefined;
             let airportDistance = undefined;
             const geoapifyURL = `https://api.geoapify.com/v1/boundaries/part-of?lat=${fData.get("lat")}&lon=${fData.get("lon")}&geometry=geometry_1000&apiKey=${VITE_GEOAPIFY}`;
-            console.log("Fetching Geoapify URL:", geoapifyURL);
             const result = await fetch(geoapifyURL);
             const data = await result.json();
             let cityLevelPlace = data.features.find((f:ExtendedFeature) => f.properties?.categories.includes('administrative.city_level'))?.properties
@@ -154,7 +152,6 @@ export const actions = {
                 ? m.properties.wiki_and_media.wikidata 
                 : undefined).filter((f:string) => f);
             const url = wdk.getEntities({ids, languages});
-            console.log("Fetching Wikidata URL:", url);
             const resultWD = await fetch(url);
             setHeaders({
                 'Cache-Control': 'public, max-age=36000' // Cache for 10 hours
@@ -165,7 +162,7 @@ export const actions = {
                     const simplified = await Promise.all(Object.values(entities as Entities).map(async (entity) => {
                         if (entity.claims) {
                             return {
-                                feature: turf.rewind(data.features.find((f:ExtendedFeature) => f.properties?.wiki_and_media?.wikidata === entity.title), {reverse: true}),
+                                feature: turf.rewind(data.features.find((f:ExtendedFeature) => f.properties?.wiki_and_media?.wikidata === entity.title), {reverse: true, mutate: true}),
                                 props: await Promise.all(wikidataProps.map(async (p) => {
                                     const newP = structuredClone(p);
                                     const claim = entity.claims[p.code];  
@@ -184,13 +181,13 @@ export const actions = {
                                                 const bDate = new Date(bStamp[0], 1 + bStamp[1], 1 + bStamp[2])
                                                 return bDate.valueOf() - aDate.valueOf();
                                             });
-                                            newP.entity = entity.labels.en.value
+                                            newP.entity = entity.title
+                                            newP.entityLabel = entity.labels.en.value
                                             newP.value = wdk.simplify.propertyClaims([sorted[0]])[0];
                                         } else if (p.children && p.children.length > 0) {
                                             const childIds = wdk.simplify.propertyClaims(claim);
                                             newP.children = await Promise.all(childIds.flatMap(async (id) => {
                                                 const childURL = wdk.getEntities({ids:[id], languages});
-                                                console.log("Fetching child Wikidata URL:", childURL);
                                                 const resultWDC = await fetch(childURL);
                                                 const { entities: childEnts } = await resultWDC.json();        
                                                 const childrenSimplified = Object.values(childEnts).flatMap(s => {
@@ -202,7 +199,8 @@ export const actions = {
                                                             if (childClaim) {
                                                                 childValue = wdk.simplify.propertyClaims([childClaim[0]])[0];
                                                             }
-                                                            newC.entity = s.labels.en.value;
+                                                            newC.entity = s.title;
+                                                            newC.entityLabel = s.labels.en.value;
                                                             newC.value = childValue;
                                                             return newC;
                                                         })
@@ -217,7 +215,8 @@ export const actions = {
                                                 })
                                             });
                                         } else {
-                                            newP.entity = entity.labels.en.value
+                                            newP.entity = entity.title
+                                            newP.entityLabel = entity.labels.en.value;
                                             newP.value = wdk.simplify.propertyClaims(entity.claims[p.code])[0];
                                         }
                                     }      
