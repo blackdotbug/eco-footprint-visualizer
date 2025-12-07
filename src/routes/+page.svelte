@@ -370,31 +370,37 @@
         -webkit-backdrop-filter: blur(2px); /* For broader browser compatibility */
     }
     header img {
-        height: 180px;
-        margin: 30px 30px 0;
+        width: 30vw;
+        margin: 30px 0 0 30px;
+        max-width: 280px;
     }
     header div#header-text {
         margin: 0;
+        width: 65vw;
     }
     h1 {
-        font-size: 3.5em;
+        font-size: clamp(20px, 10px + 2.5vw, 45px);
         text-shadow: 0.05em 0.05em .25em black;
         font-weight: 600;
         margin: 0 2rem;
     }
     h2 {
+        font-size: clamp(16px, 12.8px + 0.8vw, 24px);
         font-weight: 300;
         margin: 0 2rem;
         text-shadow: 0.05em 0.05em .25em black;
     }
     #inputs {
         display: flex;
-        gap: 30px;
-        margin: 30px 2rem 0;
+        gap: 20px;
+        margin: 20px 2rem 0;
         align-items: center;
     }
     #range-container {
-        min-width: 240px;
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        max-width: 30vw;
     }
     #loading-overlay {
         position: fixed;
@@ -415,17 +421,16 @@
     #buttons {
         display: flex;
         width: 100%;
-        gap: 32px;
+        gap: 20px;
         justify-content: space-between;
     }
     #results-container {
-        width: 35%;
-        margin: 10px 2rem;
+        min-width: 300px;
+        margin: 10px 0 0 20px;
         display: flex;
         flex-direction: column;
-        justify-content: space-evenly;
-        flex-wrap: wrap;
-        row-gap: 42px;
+        row-gap: 28px;
+        position: relative;
     }
     button#locationToggleButton {
         position: fixed;
@@ -440,7 +445,7 @@
         background-color: white;
         z-index: 900;
     }
-    button#drawer-tab-toggle, div.drawer-header {
+    button#drawer-tab-toggle {
         display: none;
     }
     #locations-drawer {
@@ -448,26 +453,22 @@
     }
     #locations {
         width: 100%;
-        margin: 30px 2rem;
+        margin: 20px 0;
         display: flex;
         flex-wrap: wrap;
-        gap: 32px;
+        gap: 25px;
     }
     #locations button {
-        width: 42%;
-        padding: 1em;
+        width: 45%;
+        padding: .8em;
         border-radius: 10px;
-        font-size: 1.2em;
+        font-size: 1.05em;
         font-weight: 600;
         background-color: #bdfc75;
         cursor: pointer;
     }
     #locations button:hover {
         background-color: #63bc00;
-    }
-    /* Card hide/show transitions and top-card positioning */
-    #results-container {
-        position: relative;
     }
     .hidden {
         opacity: 0;
@@ -476,12 +477,20 @@
         filter: blur(0.6px);
         transition: opacity .28s ease, transform .28s ease, filter .28s ease;
     }
+    div.drawer-header {
+        text-align: end;
+        display: block;
+    }
+    .drawer-tab-title {
+        display: inline-block;
+    }
+    button.drawer-close {
+        margin: 5px;
+    }
     .top-card {
         position: absolute;
-        left: 50%;
-        /* pull the flipped card higher to reveal more map space underneath */
-        transform: translate(-50%, -36px);
-        top: 30px;
+        top: 0;
+        left: 0;
         z-index: 1003;
         width: 100%;
         transition: transform .28s ease, width .28s ease, top .28s ease;
@@ -490,21 +499,24 @@
         header {
             flex-direction: column;
             align-items: start;
+            margin: 0
+        }
+        header div#header-text {
+            width: 100vw;
         }
         header img {
-            height: 140px;
+            width: 45vw;
             margin: 20px 10px 0;
         }
         h1 {
-            font-size: 2.1em;
             margin: 0 1rem;
         }
         h2 {
-            font-size: 1.2em;
+            font-size: 1.05em;
             margin: 0 1rem;
         }
         #inputs {
-            margin: 20px 1rem 0;
+            margin: 10px 1rem 0;
             gap: 10px
         }
         #loading-overlay {
@@ -512,7 +524,11 @@
         }
         #range-container {
             min-width: unset;
+            max-width: unset;
             width: 45vw;
+        }
+        #range-container label {
+            font-size: 0.9em;
         }
         #buttons {
             flex-direction: column;
@@ -534,6 +550,9 @@
         #locations button {
             width: 100%;
             padding: .5em;
+        }
+        button#locationToggleButton {
+            font-size: .75em;
         }
         /* Mobile drawer overrides */
         #drawer-overlay {
@@ -557,6 +576,7 @@
             border-top-right-radius: 12px;
             background-color: #373737;
             padding: 16px;
+            overflow-y: scroll;
         }
         #locations-drawer.open {
             transform: translateY(0%);
@@ -613,8 +633,6 @@
         } */
         .top-card {
             width: 92%;
-            top: 4vh;
-            transform: translate(-50%, -44px);
         }
     }
 
@@ -626,12 +644,15 @@
                 align-items: center;
                 gap: 12px;
                 padding-top: 10px;
+                margin: 0;
             }
-            header img { height: 94px; margin: 8px; }
-            h1 { font-size: 1.25em; margin: 0; }
+            header img { width: auto; height: 25vh; margin: 8px; }
+            h1 { margin: 0; }
             h2 { font-size: 1em; margin: 0 0 12px;}
             #inputs { margin: 0; gap: 30px; }
-
+            #range-container label {
+                font-size: .8em;
+            }
             #buttons {
                 width: 100%;
                 display: flex;
@@ -645,15 +666,14 @@
             #results-container {
                 position: fixed;
                 left: 0;
-                top: 131px;
+                top: calc(25vh + 38px);
                 width: 34%;
                 max-width: 44%;
-                height: calc(100vh - 120px);
+                height: calc(100vh - (25vh + 38px));
                 overflow-y: auto;
                 row-gap: 12px;
-                padding: 12px;
+                padding: 0;
                 box-sizing: border-box;
-                background: rgba(255,255,255,0.02);
                 z-index: 1004;
                 margin: 0;
                 flex-wrap: nowrap;
@@ -713,13 +733,13 @@
                 right: 0;
                 top: 0;
                 bottom: 0;
-                width: 34%;
-                max-width: 44%;
+                width: 45%;
                 transform: translateX(100%);
                 transition: transform .28s ease;
                 border-radius: 12px 0 0 12px;
                 padding: 12px;
                 z-index: 1001;
+                overflow-y: scroll;
             }
             #locations-drawer.open {
                 transform: translateX(0%);
@@ -744,8 +764,8 @@
                 padding: 0;
             }
 
-            /* button#locationToggleButton {
-                display: none;
-            } */
+            button#locationToggleButton {
+                font-size: .75em;
+            }
         }
 </style>

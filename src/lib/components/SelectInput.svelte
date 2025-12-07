@@ -14,13 +14,23 @@
 
 <style>
     select#people-select {
-        font-size: 1.2em;
+        font-size: 1em;
         padding: 5px;
         cursor: pointer;
+        max-width: 25vw;
     }
-    @media screen and (max-width: 900px) {
+    @media screen and (max-width: 600px) {
         select#people-select {
+            max-width: unset;
             width: 45vw;
+            font-size: .9em;
+        }
+    }
+    @media screen and (max-width: 950px) and (orientation: landscape) {
+        select#people-select {
+            max-width: unset;
+            width: 30vw;
+            font-size: .8em;
         }
     }
 </style>

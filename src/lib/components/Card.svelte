@@ -39,13 +39,13 @@
 	.impact-result {
         background-color: transparent;
         border: none;
-		position: relative;
-		cursor: pointer;
-		font-family: inherit;
+        position: relative;
+        cursor: pointer;
+        font-family: inherit;
         display: block;
-        height: 12vh;
+        min-height: 85px;
         width: 100%;
-		perspective: 1000px; 
+        perspective: 1000px;
 	}
     button:disabled .flip-box-front:hover, button:disabled .flip-box-back:hover{
         border-color: white;
@@ -79,8 +79,8 @@
 		padding: 20px;
         color: #fff;
 		position: absolute;
+        top: -45px;
 		width: 90%;
-		height: fit-content;
 		-webkit-backface-visibility: hidden; /* Safari */
 		backface-visibility: hidden;
         background-color: rgba(0, 0, 0, 0.5); /* A semi-transparent background is necessary to see the blur */
@@ -95,9 +95,22 @@
 	.flip-box-back {
 		transform: rotateY(180deg);
 	}
+    @media screen and (max-width: 600px) {
+        .flip-box-back, .flip-box-front {
+            padding: 10px;
+            height: fit-content;
+            top: -40px;
+        }
+    }
     @media screen and (max-width: 950px) and (orientation: landscape) and (min-aspect-ratio: 4/3) {
         .impact-result {
             height: 20vh;
+            min-height: unset;
+        }
+        .flip-box-front, .flip-box-back {
+            padding: 15px;
+            top: 0;
+            width: 86%;
         }
     }
 </style>
